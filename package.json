@@ -1,0 +1,17 @@
+{
+  "name": "com.nelasystem.flux-console",
+  "version": "0.1.0",
+  "displayName": "Flux Console",
+  "description": "A minimal runtime console.",
+  "dependencies": {
+  },
+  "license": "MIT",
+  "keywords": [
+    "unity",
+    "tools"
+  ],
+  "author": {
+    "name": "Zack Zhang",
+    "email": "support@nelasystem.com"
+  }
+}
