@@ -20,13 +20,11 @@ The description and manual is set via the CommandAttribute on the function:
                 context.Output("The available commands are listed below. Use `help <command>` for details of a specific command.\n");
                 foreach (var command in CommandCache.GetAllCommands()) {
                     if (string.IsNullOrEmpty(command.description)) {
-                        context.Output($"<b>{command.name}</b>\n", false);
+                        context.Output($"<b>{command.name}</b>\n");
                     } else {
-                        context.Output($"<b>{command.name}</b>: {command.description}\n", false);
+                        context.Output($"<b>{command.name}</b>: {command.description}\n");
                     }
                 }
-
-                context.Flush();
             } else if (args.Count == 1) {
                 if (CommandCache.TryFindCommandInfo(args[0], out var info)) {
                     context.Output($"{info.manual}\n");

@@ -25,6 +25,7 @@ namespace Nela.Flux {
 
         private StringBuilder _outputHistory = new StringBuilder($"<b>Flux Console</b>\n<color=#70ff90><i>{DateTime.Now}</i></color>\n");
         private string _outputCache;
+        private bool _outputDirty;
         private Vector2 _scrollPosition;
         private CommandHistory _commandHistory;
 
@@ -60,7 +61,9 @@ namespace Nela.Flux {
                     _scrollBarDownButtonStyle,
                 };
             }
-            
+
+            if (_outputDirty) Flush();
+
             var originalSkin = GUI.skin;
             GUI.skin = _skin;
             
@@ -151,10 +154,7 @@ namespace Nela.Flux {
 
         private void Submit(string command) {
             if (command == "") return;
-            lock (_outputHistory) {
-                _outputHistory.Append($"<color=#70ff90><i>{DateTime.Now.ToShortTimeString()}</i></color> <b>></b> ");
-                _outputHistory.AppendLine(command);
-            }
+            Output($"<color=#70ff90><i>{DateTime.Now.ToShortTimeString()}</i></color> <b>></b> {command}\n");
 
             Flush();
 
@@ -182,12 +182,10 @@ namespace Nela.Flux {
             _scrollPosition = Vector2.zero;
         }
 
-        /// <summary>
-        /// Flush the console output. Thread-safe.
-        /// </summary>
-        public void Flush() {
+        private void Flush() {
             lock (_outputHistory) {
                 _outputCache = _outputHistory.ToString();
+                _outputDirty = false;
             }
 
             ScrollToBottom();
@@ -196,16 +194,15 @@ namespace Nela.Flux {
         /// <summary>
         /// Write output to the console. Thread-safe.
         /// </summary>
-        public void Output(string content, bool flush = true) {
+        public void Output(string content) {
             lock (_outputHistory) {
+                _outputDirty = true;
                 var outputHistory = _outputHistory;
                 outputHistory.Append(content);
                 if (outputHistory.Length > MAX_OUTPUT_HISTORY_SIZE + MAX_OUTPUT_HISTORY_SIZE_MARGIN) {
                     outputHistory.Remove(0, outputHistory.Length - MAX_OUTPUT_HISTORY_SIZE);
                 }
             }
-
-            if (flush) Flush();
         }
 
         public void Error(string message) {

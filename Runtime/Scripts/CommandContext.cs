@@ -12,16 +12,12 @@ namespace Nela.Flux {
             _input = input;
         }
 
-        public void Output(string text, bool flush = true) {
-            _console.Output(text, flush);
+        public void Output(string text) {
+            _console.Output(text);
         }
 
         public void Error(string message) {
             _console.Error(message);
-        }
-
-        public void Flush() {
-            _console.Flush();
         }
 
         public List<string> ReadAllArguments() {
