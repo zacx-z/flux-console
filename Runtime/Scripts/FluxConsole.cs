@@ -5,8 +5,8 @@ using UnityEngine;
 namespace Nela.Flux {
     public class FluxConsole : MonoBehaviour {
         private const int MAX_COMMAND_HISTORY = 256;
-        private const int MAX_OUTPUT_HISTORY_SIZE = 2048;
-        private const int MAX_OUTPUT_HISTORY_SIZE_MARGIN = 256;
+        private const int MAX_OUTPUT_HISTORY_SIZE = 8192;
+        private const int MAX_OUTPUT_HISTORY_SIZE_MARGIN = 512;
         private static readonly string[] PREFERRED_FONTS = new[]
         {
             "Monaco",
@@ -134,7 +134,7 @@ namespace Nela.Flux {
 
             _scrollPosition.y -= contentViewHeight;
 
-            GUI.Label(new Rect(4, 0, contentViewWidth - 4, contentViewHeight), _outputCache, _historyStyle);
+            GUI.Label(new Rect(0, 0, contentViewWidth, contentViewHeight), _outputCache, _historyStyle);
             GUI.EndScrollView();
             GUI.SetNextControlName("Command");
 
@@ -193,7 +193,12 @@ namespace Nela.Flux {
 
         private void Flush() {
             lock (_outputHistory) {
-                _outputCache = _outputHistory.ToString();
+                if (_outputHistory[^1] == '\n') {
+                    _outputCache = _outputHistory.ToString(0, _outputHistory.Length - 1);
+                } else {
+                    _outputCache = _outputHistory.ToString();
+                }
+
                 _outputDirty = false;
             }
 
@@ -261,6 +266,7 @@ namespace Nela.Flux {
             _historyStyle.normal.textColor = Color.white;
             _historyStyle.wordWrap = true;
             _historyStyle.richText = true;
+            _historyStyle.padding = new RectOffset(4, 4, 0, 4);
             _historyStyle.fontSize = 16;
             if (font != null) _historyStyle.font = font;
 
