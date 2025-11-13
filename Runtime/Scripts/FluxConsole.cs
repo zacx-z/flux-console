@@ -24,9 +24,11 @@ namespace Nela.Flux {
         private StringBuilder _outputHistory = new StringBuilder("Flux Console\n\n");
         private string _outputCache;
         private Vector2 _scrollPosition;
+        private CommandHistory _commandHistory;
 
         public FluxConsole() {
             _outputHistory.EnsureCapacity(MAX_HISTORY_LENGTH + MAX_HISTORY_LENGTH_MARGIN);
+            _commandHistory = new CommandHistory();
             Flush();
         }
 
@@ -52,32 +54,41 @@ namespace Nela.Flux {
             
             var originalSkin = GUI.skin;
             GUI.skin = _skin;
+            
+            var currentEvent = Event.current;
 
-            if (Event.current.type == EventType.KeyDown) {
-                if (Event.current.keyCode == KeyCode.BackQuote && Event.current.control) {
+            if (currentEvent.type == EventType.KeyDown) {
+                if (currentEvent.keyCode == KeyCode.BackQuote && currentEvent.control) {
                     Toggle();
-                    Event.current.Use();
+                    currentEvent.Use();
                 }
 
-                if (Event.current.keyCode == KeyCode.Return) {
+                if (currentEvent.keyCode == KeyCode.Return) {
                     Submit(_inputText);
-                    _inputText = string.Empty;
-                    Event.current.Use();
+                    currentEvent.Use();
                 }
 
-                if (Event.current.keyCode == KeyCode.Tab) {
+                if (currentEvent.keyCode == KeyCode.Tab) {
                     var newInput = TabComplete(_inputText);
                     if (newInput != _inputText) {
-                        var textEditor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl);
-                        textEditor.text = _inputText = newInput;
-                        textEditor.selectIndex = textEditor.cursorIndex = _inputText.Length;
+                        SetNewInput(newInput);
                     }
+                }
+
+                if (currentEvent.keyCode == KeyCode.UpArrow) {
+                    SetNewInput(_commandHistory.Older(_inputText));
+                    currentEvent.Use();
+                }
+
+                if (currentEvent.keyCode == KeyCode.DownArrow) {
+                    SetNewInput(_commandHistory.Newer(_inputText));
+                    currentEvent.Use();
                 }
             }
 
-            if (Event.current.type == EventType.ScrollWheel) {
-                _scrollPosition += Event.current.delta * 10;
-                Event.current.Use();
+            if (currentEvent.type == EventType.ScrollWheel) {
+                _scrollPosition += currentEvent.delta * 10;
+                currentEvent.Use();
             }
 
             var historyRect = new Rect(0, 0, Screen.width, Screen.height - 330);
@@ -106,6 +117,14 @@ namespace Nela.Flux {
             GUI.skin = originalSkin;
         }
 
+        private void SetNewInput(string newInput) {
+            var textEditor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl);
+            if (textEditor != null) {
+                textEditor.text = _inputText = newInput;
+                textEditor.selectIndex = textEditor.cursorIndex = _inputText.Length;
+            }
+        }
+
         private void Submit(string command) {
             if (command == "") return;
             _outputHistory.Append("<b>></b> ");
@@ -113,6 +132,10 @@ namespace Nela.Flux {
             Flush();
 
             ExecuteCommand(command);
+
+            _commandHistory.Add(_inputText);
+            _inputText = string.Empty;
+            _commandHistory.ResetCursor();
         }
 
         private string TabComplete(string inputText) {
