@@ -20,6 +20,7 @@ namespace Nela.Flux {
 
         private bool _isOpen;
         private string _inputText = string.Empty;
+        private string _inputNavHint;
 
         private StringBuilder _outputHistory = new StringBuilder("Flux Console\n\n");
         private string _outputCache;
@@ -72,16 +73,17 @@ namespace Nela.Flux {
                     var newInput = TabComplete(_inputText);
                     if (newInput != _inputText) {
                         SetNewInput(newInput);
+                        _inputNavHint = _inputText;
                     }
                 }
 
                 if (currentEvent.keyCode == KeyCode.UpArrow) {
-                    SetNewInput(_commandHistory.Older(_inputText));
+                    SetNewInput(_commandHistory.Older(_inputNavHint));
                     currentEvent.Use();
                 }
 
                 if (currentEvent.keyCode == KeyCode.DownArrow) {
-                    SetNewInput(_commandHistory.Newer(_inputText));
+                    SetNewInput(_commandHistory.Newer(_inputNavHint));
                     currentEvent.Use();
                 }
             }
@@ -110,7 +112,16 @@ namespace Nela.Flux {
             GUI.Label(new Rect(4, 0, contentViewWidth - 4, contentViewHeight), _outputCache, _historyStyle);
             GUI.EndScrollView();
             GUI.SetNextControlName("Command");
+
+            var originalChanged = GUI.changed;
+            GUI.changed = false;
+
             _inputText = GUI.TextField(new Rect(0, Screen.height - 330, Screen.width, 24), _inputText, _inputTextStyle);
+            if (GUI.changed) {
+                _inputNavHint = _inputText;
+                _commandHistory.ResetCursor();
+            }
+            GUI.changed = originalChanged;
 
             GUI.FocusControl("Command"); // always focus on the input field
 
@@ -134,7 +145,7 @@ namespace Nela.Flux {
             ExecuteCommand(command);
 
             _commandHistory.Add(_inputText);
-            _inputText = string.Empty;
+            _inputNavHint = _inputText = string.Empty;
             _commandHistory.ResetCursor();
         }
 
