@@ -23,7 +23,7 @@ namespace Nela.Flux {
         private string _inputText = string.Empty;
         private string _inputNavHint = string.Empty;
 
-        private StringBuilder _outputHistory = new StringBuilder("<b>Flux Console</b>\n\n");
+        private StringBuilder _outputHistory = new StringBuilder($"<b>Flux Console</b>\n<color=#70ff90><i>{DateTime.Now}</i></color>\n");
         private string _outputCache;
         private Vector2 _scrollPosition;
         private CommandHistory _commandHistory;
@@ -146,8 +146,11 @@ namespace Nela.Flux {
 
         private void Submit(string command) {
             if (command == "") return;
-            _outputHistory.Append("<b>></b> ");
-            _outputHistory.AppendLine(command);
+            lock (_outputHistory) {
+                _outputHistory.Append($"<color=#70ff90><i>{DateTime.Now.ToShortTimeString()}</i></color> <b>></b> ");
+                _outputHistory.AppendLine(command);
+            }
+
             Flush();
 
             ExecuteCommand(command);
@@ -174,16 +177,27 @@ namespace Nela.Flux {
             _scrollPosition = Vector2.zero;
         }
 
+        /// <summary>
+        /// Flush the console output. Thread-safe.
+        /// </summary>
         public void Flush() {
-            _outputCache = _outputHistory.ToString();
+            lock (_outputHistory) {
+                _outputCache = _outputHistory.ToString();
+            }
+
             ScrollToBottom();
         }
 
+        /// <summary>
+        /// Write output to the console. Thread-safe.
+        /// </summary>
         public void Output(string content, bool flush = true) {
-            var outputHistory = _outputHistory;
-            outputHistory.Append(content);
-            if (outputHistory.Length > MAX_OUTPUT_HISTORY_SIZE + MAX_OUTPUT_HISTORY_SIZE_MARGIN) {
-                outputHistory.Remove(0, outputHistory.Length - MAX_OUTPUT_HISTORY_SIZE);
+            lock (_outputHistory) {
+                var outputHistory = _outputHistory;
+                outputHistory.Append(content);
+                if (outputHistory.Length > MAX_OUTPUT_HISTORY_SIZE + MAX_OUTPUT_HISTORY_SIZE_MARGIN) {
+                    outputHistory.Remove(0, outputHistory.Length - MAX_OUTPUT_HISTORY_SIZE);
+                }
             }
 
             if (flush) Flush();
@@ -202,7 +216,7 @@ namespace Nela.Flux {
                 if (com != null) {
                     com.Execute(new CommandContext(_console, tokenizer));
                 } else {
-                    _console.Error($"Can't find command {command}\n");
+                    _console.Error($"Can't find command {command}");
                 }
             }
         }
