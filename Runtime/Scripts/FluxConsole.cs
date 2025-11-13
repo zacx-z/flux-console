@@ -4,8 +4,9 @@ using UnityEngine;
 
 namespace Nela.Flux {
     public class FluxConsole : MonoBehaviour {
-        private const int MAX_HISTORY_LENGTH = 2048;
-        private const int MAX_HISTORY_LENGTH_MARGIN = 256;
+        private const int MAX_COMMAND_HISTORY = 256;
+        private const int MAX_OUTPUT_HISTORY_SIZE = 2048;
+        private const int MAX_OUTPUT_HISTORY_SIZE_MARGIN = 256;
         private static FluxConsole _console;
 
         // resources
@@ -20,23 +21,30 @@ namespace Nela.Flux {
 
         private bool _isOpen;
         private string _inputText = string.Empty;
-        private string _inputNavHint;
+        private string _inputNavHint = string.Empty;
 
-        private StringBuilder _outputHistory = new StringBuilder("Flux Console\n\n");
+        private StringBuilder _outputHistory = new StringBuilder("<b>Flux Console</b>\n\n");
         private string _outputCache;
         private Vector2 _scrollPosition;
         private CommandHistory _commandHistory;
 
         public FluxConsole() {
-            _outputHistory.EnsureCapacity(MAX_HISTORY_LENGTH + MAX_HISTORY_LENGTH_MARGIN);
-            _commandHistory = new CommandHistory();
+            _outputHistory.EnsureCapacity(MAX_OUTPUT_HISTORY_SIZE + MAX_OUTPUT_HISTORY_SIZE_MARGIN);
             Flush();
+        }
+
+        private void Awake() {
+            _commandHistory = new CommandHistory();
         }
 
         private void Update() {
             if (Input.GetKeyDown(KeyCode.BackQuote) && Input.GetKey(KeyCode.LeftControl)) {
                 this.Toggle();
             }
+        }
+
+        private void OnDestroy() {
+            _commandHistory.MakePersistent(MAX_COMMAND_HISTORY);
         }
 
         private void OnGUI() {
@@ -174,8 +182,8 @@ namespace Nela.Flux {
         public void Output(string content, bool flush = true) {
             var outputHistory = _outputHistory;
             outputHistory.Append(content);
-            if (outputHistory.Length > MAX_HISTORY_LENGTH + MAX_HISTORY_LENGTH_MARGIN) {
-                outputHistory.Remove(0, outputHistory.Length - MAX_HISTORY_LENGTH);
+            if (outputHistory.Length > MAX_OUTPUT_HISTORY_SIZE + MAX_OUTPUT_HISTORY_SIZE_MARGIN) {
+                outputHistory.Remove(0, outputHistory.Length - MAX_OUTPUT_HISTORY_SIZE);
             }
 
             if (flush) Flush();
@@ -204,7 +212,7 @@ namespace Nela.Flux {
             CreateResources();
 
             var fluxConsoleObj = new GameObject("FluxConsole");
-            fluxConsoleObj.hideFlags = HideFlags.HideAndDontSave;
+            fluxConsoleObj.hideFlags = HideFlags.HideInHierarchy;
             DontDestroyOnLoad(fluxConsoleObj);
             _console = fluxConsoleObj.AddComponent<FluxConsole>();
         }

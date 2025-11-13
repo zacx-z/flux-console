@@ -1,11 +1,15 @@
 using System.Collections.Generic;
+using System.Text;
+using UnityEngine;
 
 namespace Nela.Flux {
     public class CommandHistory {
-        private List<string> _commands = new List<string>();
+        private List<string> _commands;
         private int _cursorIndex = 0;
 
         public CommandHistory() {
+            _commands = new List<string>(PlayerPrefs.GetString("nela.flux-history", string.Empty).Split('\n'));
+            _commands.RemoveAll(string.IsNullOrEmpty);
         }
 
         public void ResetCursor() {
@@ -44,5 +48,15 @@ namespace Nela.Flux {
             return _commands[^_cursorIndex];
         }
 
+        public void MakePersistent(int maxHistory) {
+            var historyString = new StringBuilder();
+            for (int i = Mathf.Max(0, _commands.Count - maxHistory); i < _commands.Count; i++) {
+                historyString.Append(_commands[i]);
+                historyString.Append("\n");
+            }
+
+            PlayerPrefs.SetString("nela.flux-history", historyString.ToString());
+            PlayerPrefs.Save();
+        }
     }
 }
