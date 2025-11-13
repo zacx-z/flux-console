@@ -1,11 +1,11 @@
 using System.Text;
 using UnityEngine;
 
-namespace Nela {
+namespace Nela.Flux {
     public class FluxConsole : MonoBehaviour {
         private const int MAX_HISTORY_LENGTH = 2048;
         private const int MAX_HISTORY_LENGTH_MARGIN = 256;
-        private static FluxConsole _instance;
+        private static FluxConsole _console;
 
         // resources
         private static Texture2D _backgroundTexture;
@@ -114,11 +114,6 @@ namespace Nela {
             return inputText;
         }
 
-        private void FlushOutput() {
-            _outputCache = _outputHistory.ToString();
-            ScrollToBottom();
-        }
-
         private void Toggle() {
             _isOpen = !_isOpen;
         }
@@ -127,23 +122,36 @@ namespace Nela {
             _scrollPosition = Vector2.zero;
         }
 
-        public static bool isOpen => _instance != null && _instance._isOpen;
-
-        public static void ExecuteCommand(string command) {
-            FluxConsole.Output($"<i>{command}</i>\n");
+        public void FlushOutput() {
+            _outputCache = _outputHistory.ToString();
+            ScrollToBottom();
         }
 
-        public static void Output(string content, bool flush = true) {
-            var outputHistory = _instance._outputHistory;
+        public void Output(string content, bool flush = true) {
+            var outputHistory = _outputHistory;
             outputHistory.Append(content);
             if (outputHistory.Length > MAX_HISTORY_LENGTH + MAX_HISTORY_LENGTH_MARGIN) {
                 outputHistory.Remove(0, outputHistory.Length - MAX_HISTORY_LENGTH);
             }
-            if (flush) _instance.FlushOutput();
+            if (flush) FlushOutput();
+        }
+
+        public static bool isOpen => _console != null && _console._isOpen;
+
+        public static void ExecuteCommand(string commandLine) {
+            var tokenizer = new CommandTokenizer(commandLine);
+            if (tokenizer.TryNextToken(out var command)) {
+                var com = CommandCache.FindCommand(command);
+                if (com != null) {
+                    com.Execute(new CommandContext(_console, tokenizer));
+                } else {
+                    _console.Output($"<b><color=#ff0000>Error</color></b>: Can't find command {command}\n");
+                }
+            }
         }
 
         public static void Flush() {
-            _instance.FlushOutput();
+            _console.FlushOutput();
         }
 
         [RuntimeInitializeOnLoadMethod]
@@ -153,7 +161,7 @@ namespace Nela {
             var fluxConsoleObj = new GameObject("FluxConsole");
             fluxConsoleObj.hideFlags = HideFlags.HideAndDontSave;
             DontDestroyOnLoad(fluxConsoleObj);
-            _instance = fluxConsoleObj.AddComponent<FluxConsole>();
+            _console = fluxConsoleObj.AddComponent<FluxConsole>();
         }
 
         private static void CreateResources() {
