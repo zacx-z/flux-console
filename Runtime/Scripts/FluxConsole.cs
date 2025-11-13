@@ -94,6 +94,11 @@ namespace Nela.Flux {
                     SetNewInput(_commandHistory.Newer(_inputNavHint));
                     currentEvent.Use();
                 }
+
+                if (currentEvent.keyCode == KeyCode.C && currentEvent.control) {
+                    _inputText = string.Empty;
+                    currentEvent.Use();
+                }
             }
 
             if (currentEvent.type == EventType.ScrollWheel) {
