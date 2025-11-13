@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using UnityEngine;
 
@@ -18,7 +19,7 @@ namespace Nela.Flux {
         private static GUISkin _skin;
 
         private bool _isOpen;
-        private string _inputText;
+        private string _inputText = string.Empty;
 
         private StringBuilder _outputHistory = new StringBuilder("Flux Console\n\n");
         private string _outputCache;
@@ -26,7 +27,7 @@ namespace Nela.Flux {
 
         public FluxConsole() {
             _outputHistory.EnsureCapacity(MAX_HISTORY_LENGTH + MAX_HISTORY_LENGTH_MARGIN);
-            FlushOutput();
+            Flush();
         }
 
         private void Update() {
@@ -60,13 +61,17 @@ namespace Nela.Flux {
 
                 if (Event.current.keyCode == KeyCode.Return) {
                     Submit(_inputText);
-                    _inputText = "";
+                    _inputText = string.Empty;
                     Event.current.Use();
                 }
 
                 if (Event.current.keyCode == KeyCode.Tab) {
-                    TabComplete(_inputText);
-                    Event.current.Use();
+                    var newInput = TabComplete(_inputText);
+                    if (newInput != _inputText) {
+                        var textEditor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl);
+                        textEditor.text = _inputText = newInput;
+                        textEditor.selectIndex = textEditor.cursorIndex = _inputText.Length;
+                    }
                 }
             }
 
@@ -105,12 +110,17 @@ namespace Nela.Flux {
             if (command == "") return;
             _outputHistory.Append("<b>></b> ");
             _outputHistory.AppendLine(command);
-            FlushOutput();
+            Flush();
 
             ExecuteCommand(command);
         }
 
         private string TabComplete(string inputText) {
+            foreach (var com in CommandCache.GetAllCommands()) {
+                if (com.name.StartsWith(inputText)) {
+                    return com.name;
+                }
+            }
             return inputText;
         }
 
@@ -122,7 +132,7 @@ namespace Nela.Flux {
             _scrollPosition = Vector2.zero;
         }
 
-        public void FlushOutput() {
+        public void Flush() {
             _outputCache = _outputHistory.ToString();
             ScrollToBottom();
         }
@@ -133,7 +143,12 @@ namespace Nela.Flux {
             if (outputHistory.Length > MAX_HISTORY_LENGTH + MAX_HISTORY_LENGTH_MARGIN) {
                 outputHistory.Remove(0, outputHistory.Length - MAX_HISTORY_LENGTH);
             }
-            if (flush) FlushOutput();
+
+            if (flush) Flush();
+        }
+
+        public void Error(string message) {
+            Output($"<b><color=#ff0000>Error</color></b>: {message}\n");
         }
 
         public static bool isOpen => _console != null && _console._isOpen;
@@ -145,13 +160,9 @@ namespace Nela.Flux {
                 if (com != null) {
                     com.Execute(new CommandContext(_console, tokenizer));
                 } else {
-                    _console.Output($"<b><color=#ff0000>Error</color></b>: Can't find command {command}\n");
+                    _console.Error($"Can't find command {command}\n");
                 }
             }
-        }
-
-        public static void Flush() {
-            _console.FlushOutput();
         }
 
         [RuntimeInitializeOnLoadMethod]
@@ -178,6 +189,7 @@ namespace Nela.Flux {
             _historyStyle = new GUIStyle();
             _historyStyle.alignment = TextAnchor.LowerLeft;
             _historyStyle.normal.textColor = Color.white;
+            _historyStyle.wordWrap = true;
             _historyStyle.richText = true;
             _historyStyle.fontSize = 16;
 
