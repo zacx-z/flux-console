@@ -7,6 +7,15 @@ namespace Nela.Flux {
         private const int MAX_COMMAND_HISTORY = 256;
         private const int MAX_OUTPUT_HISTORY_SIZE = 2048;
         private const int MAX_OUTPUT_HISTORY_SIZE_MARGIN = 256;
+        private static readonly string[] PREFERRED_FONTS = new[]
+        {
+            "Monaco",
+            "Consolas",
+            "SF Mono",
+            "DejaVu Sans Mono",
+            "Roboto Mono"
+        };
+
         private static FluxConsole _console;
 
         // resources
@@ -234,6 +243,8 @@ namespace Nela.Flux {
         }
 
         private static void CreateResources() {
+            var font = CreateMonospaceFont(16);
+
             _backgroundTexture = new Texture2D(1, 1);
             _backgroundTexture.SetPixel(0, 0, new Color(0, 0, 0, 0.5f));
             _backgroundTexture.Apply();
@@ -243,6 +254,7 @@ namespace Nela.Flux {
             _inputTextStyle.normal.textColor = Color.white;
             _inputTextStyle.padding = new RectOffset(4, 4, 0, 0);
             _inputTextStyle.fontSize = 16;
+            if (font != null) _inputTextStyle.font = font;
 
             _historyStyle = new GUIStyle();
             _historyStyle.alignment = TextAnchor.LowerLeft;
@@ -250,6 +262,7 @@ namespace Nela.Flux {
             _historyStyle.wordWrap = true;
             _historyStyle.richText = true;
             _historyStyle.fontSize = 16;
+            if (font != null) _historyStyle.font = font;
 
             _scrollBarStyle = new GUIStyle();
             _scrollBarStyle.name = "fluxconsoleverticalscrollbar";
@@ -265,6 +278,16 @@ namespace Nela.Flux {
 
             _scrollBarDownButtonStyle = GUIStyle.none;
             _scrollBarDownButtonStyle.name = "fluxconsoleverticalscrollbardownbutton";
+        }
+
+        private static Font CreateMonospaceFont(int size) {
+            var fonts = Font.GetOSInstalledFontNames();
+            foreach (var font in PREFERRED_FONTS) {
+                if (Array.IndexOf(fonts, font) != -1)
+                    return Font.CreateDynamicFontFromOSFont(font, size);
+            }
+
+            return null;
         }
     }
 }
