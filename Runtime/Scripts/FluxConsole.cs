@@ -230,7 +230,12 @@ namespace Nela.Flux {
             if (tokenizer.TryNextToken(out var command)) {
                 var com = CommandCache.FindCommand(command);
                 if (com != null) {
-                    com.Execute(new CommandContext(_console, tokenizer));
+                    try {
+                        com.Execute(new CommandContext(_console, tokenizer));
+                    }
+                    catch (Exception e) {
+                        _console.Error(e.ToString());
+                    }
                 } else {
                     _console.Error($"Can't find command {command}");
                 }
