@@ -7,6 +7,7 @@ namespace Nela.Flux {
         private const int MAX_COMMAND_HISTORY = 256;
         private const int MAX_OUTPUT_HISTORY_SIZE = 8192;
         private const int MAX_OUTPUT_HISTORY_SIZE_MARGIN = 512;
+        private const int BOTTOM_SPACE = 330;
         private static readonly string[] PREFERRED_FONTS = new[]
         {
             "Monaco",
@@ -22,6 +23,7 @@ namespace Nela.Flux {
         private static Texture2D _backgroundTexture;
         private static GUIStyle _inputTextStyle;
         private static GUIStyle _historyStyle;
+        private static GUIStyle _promptStyle;
         private static GUIStyle _scrollBarStyle;
         private static GUIStyle _scrollBarThumbStyle;
         private static GUIStyle _scrollBarUpButtonStyle;
@@ -118,7 +120,7 @@ namespace Nela.Flux {
                 currentEvent.Use();
             }
 
-            var historyRect = new Rect(0, 0, Screen.width, Screen.height - 330);
+            var historyRect = new Rect(0, 0, Screen.width, Screen.height - BOTTOM_SPACE);
             GUI.DrawTexture(historyRect, _backgroundTexture, ScaleMode.StretchToFill, true);
 
             var contentViewWidth = Screen.width - 8;
@@ -141,7 +143,12 @@ namespace Nela.Flux {
             var originalChanged = GUI.changed;
             GUI.changed = false;
 
-            _inputText = GUI.TextField(new Rect(0, Screen.height - 330, Screen.width, 24), _inputText, _inputTextStyle);
+            // draw prompt
+            var prompt = GetCurrentPrompt();
+            var promptWidth = _historyStyle.CalcSize(new GUIContent(prompt)).x - 2;
+            GUI.Label(new Rect(0, Screen.height - BOTTOM_SPACE, promptWidth, 24), prompt, _promptStyle);
+
+            _inputText = GUI.TextField(new Rect(promptWidth, Screen.height - BOTTOM_SPACE, Screen.width - promptWidth, 24), _inputText, _inputTextStyle);
             if (GUI.changed) {
                 _inputNavHint = _inputText;
                 _commandHistory.ResetCursor();
@@ -205,6 +212,10 @@ namespace Nela.Flux {
             ScrollToBottom();
         }
 
+        private string GetCurrentPrompt() {
+            return $"<color=#70ff90><i>{DateTime.Now.ToShortTimeString()}</i></color> <b>></b> ";
+        }
+
         /// <summary>
         /// Write output to the console. Thread-safe.
         /// </summary>
@@ -262,7 +273,7 @@ namespace Nela.Flux {
             _inputTextStyle = new GUIStyle();
             _inputTextStyle.normal.background = _backgroundTexture;
             _inputTextStyle.normal.textColor = Color.white;
-            _inputTextStyle.padding = new RectOffset(4, 4, 0, 0);
+            _inputTextStyle.padding = new RectOffset(0, 4, 0, 0);
             _inputTextStyle.fontSize = 16;
             if (font != null) _inputTextStyle.font = font;
 
@@ -274,6 +285,11 @@ namespace Nela.Flux {
             _historyStyle.padding = new RectOffset(4, 4, 0, 4);
             _historyStyle.fontSize = 16;
             if (font != null) _historyStyle.font = font;
+
+            _promptStyle = new GUIStyle(_historyStyle);
+            _promptStyle.normal.background = _backgroundTexture;
+            _promptStyle.alignment = TextAnchor.UpperLeft;
+            _promptStyle.padding = new RectOffset(4, 0, 0, 0);
 
             _scrollBarStyle = new GUIStyle();
             _scrollBarStyle.name = "fluxconsoleverticalscrollbar";
