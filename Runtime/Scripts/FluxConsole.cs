@@ -265,6 +265,7 @@ namespace Nela.Flux {
 
         private static void CreateResources() {
             var font = CreateMonospaceFont(16);
+            font.hideFlags = HideFlags.HideAndDontSave;
 
             _backgroundTexture = new Texture2D(1, 1);
             _backgroundTexture.SetPixel(0, 0, new Color(0, 0, 0, 0.5f));
