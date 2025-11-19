@@ -17,6 +17,7 @@ namespace Nela.Flux {
         }
 
         public void Add(string command) {
+            if (_commands.Count > 0 && _commands[^1] == command) return; // avoid repetition
             _commands.Add(command);
         }
 
