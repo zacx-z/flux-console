@@ -1,13 +1,13 @@
 using System;
+using System.IO;
 using System.Text;
 using UnityEngine;
 
 namespace Nela.Flux {
     public class FluxConsole : MonoBehaviour {
-        private const int MAX_COMMAND_HISTORY = 256;
-        private const int MAX_OUTPUT_HISTORY_SIZE = 8192;
         private const int MAX_OUTPUT_HISTORY_SIZE_MARGIN = 512;
-        private const int BOTTOM_SPACE = 330;
+        private static readonly Color DEFAULT_BACKGROUND_COLOR = new Color(0, 0, 0, 0.5f);
+        private static readonly Color DEFAULT_TEXT_COLOR = new Color(1, 1, 1);
         private static readonly string[] PREFERRED_FONTS = new[]
         {
             "Monaco",
@@ -19,6 +19,7 @@ namespace Nela.Flux {
 
         private static FluxConsole _console;
 
+        private static FluxSettings _settings;
         // resources
         private static Texture2D _backgroundTexture;
         private static GUIStyle _inputTextStyle;
@@ -41,7 +42,7 @@ namespace Nela.Flux {
         private CommandHistory _commandHistory;
 
         public FluxConsole() {
-            _outputHistory.EnsureCapacity(MAX_OUTPUT_HISTORY_SIZE + MAX_OUTPUT_HISTORY_SIZE_MARGIN);
+            _outputHistory.EnsureCapacity(_settings.outputBufferSize + MAX_OUTPUT_HISTORY_SIZE_MARGIN);
             Flush();
         }
 
@@ -56,7 +57,7 @@ namespace Nela.Flux {
         }
 
         private void OnDestroy() {
-            _commandHistory.MakePersistent(MAX_COMMAND_HISTORY);
+            _commandHistory.MakePersistent(_settings.historySize);
         }
 
         private void OnGUI() {
@@ -125,10 +126,15 @@ namespace Nela.Flux {
                 currentEvent.Use();
             }
 
-            var historyRect = new Rect(0, 0, Screen.width, Screen.height - BOTTOM_SPACE);
+            var margin = _settings.margin;
+            const int LINE_HEIGHT = 24;
+
+            var historyRect = new Rect(margin.left, margin.top,
+                Screen.width - margin.left - margin.right,
+                Screen.height - margin.top - margin.bottom - LINE_HEIGHT);
             GUI.DrawTexture(historyRect, _backgroundTexture, ScaleMode.StretchToFill, true);
 
-            var contentViewWidth = Screen.width - 8;
+            var contentViewWidth = Screen.width - 8 - margin.left - margin.right;
             var contentViewHeight = _historyStyle.CalcHeight(new GUIContent(_outputCache), contentViewWidth);
             contentViewHeight = Mathf.Max(contentViewHeight, historyRect.height);
 
@@ -141,7 +147,7 @@ namespace Nela.Flux {
 
             _scrollPosition.y -= contentViewHeight;
 
-            GUI.Label(new Rect(0, 0, contentViewWidth, contentViewHeight), _outputCache, _historyStyle);
+            GUI.Label(new Rect(margin.left, margin.top, contentViewWidth, contentViewHeight), _outputCache, _historyStyle);
             GUI.EndScrollView();
             GUI.SetNextControlName("Command");
 
@@ -151,9 +157,11 @@ namespace Nela.Flux {
             // draw prompt
             var prompt = GetCurrentPrompt();
             var promptWidth = _historyStyle.CalcSize(new GUIContent(prompt)).x - 2;
-            GUI.Label(new Rect(0, Screen.height - BOTTOM_SPACE, promptWidth, 24), prompt, _promptStyle);
+            GUI.Label(new Rect(margin.left, Screen.height - margin.bottom - LINE_HEIGHT, promptWidth, LINE_HEIGHT), prompt, _promptStyle);
 
-            _inputText = GUI.TextField(new Rect(promptWidth, Screen.height - BOTTOM_SPACE, Screen.width - promptWidth, 24), _inputText, _inputTextStyle);
+            _inputText = GUI.TextField(new Rect(promptWidth, Screen.height - margin.bottom - LINE_HEIGHT
+                    , Screen.width - promptWidth - margin.left - margin.right, LINE_HEIGHT)
+                , _inputText, _inputTextStyle);
             if (GUI.changed) {
                 _inputNavHint = _inputText;
                 _commandHistory.ResetCursor();
@@ -229,8 +237,8 @@ namespace Nela.Flux {
                 _outputDirty = true;
                 var outputHistory = _outputHistory;
                 outputHistory.Append(content);
-                if (outputHistory.Length > MAX_OUTPUT_HISTORY_SIZE + MAX_OUTPUT_HISTORY_SIZE_MARGIN) {
-                    outputHistory.Remove(0, outputHistory.Length - MAX_OUTPUT_HISTORY_SIZE);
+                if (outputHistory.Length > _settings.outputBufferSize + MAX_OUTPUT_HISTORY_SIZE_MARGIN) {
+                    outputHistory.Remove(0, outputHistory.Length - _settings.outputBufferSize);
                 }
             }
         }
@@ -260,6 +268,11 @@ namespace Nela.Flux {
 
         [RuntimeInitializeOnLoadMethod]
         private static void StartUp() {
+            var userProfileDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            _settings = GetDefaultSettings();
+            TryLoadSettings(Path.Combine(userProfileDirectory, ".config/flux-console.json"), ref _settings);
+            TryLoadSettings(Path.Combine(Directory.GetCurrentDirectory(), ".flux-console.json"), ref _settings);
+
             CreateResources();
 
             var fluxConsoleObj = new GameObject("FluxConsole");
@@ -268,28 +281,62 @@ namespace Nela.Flux {
             _console = fluxConsoleObj.AddComponent<FluxConsole>();
         }
 
+        private static FluxSettings GetDefaultSettings() {
+            return new FluxSettings()
+            {
+                margin = new FluxSettings.Margin()
+                {
+                    bottom = 300
+                },
+                backgroundColor = ColorUtility.ToHtmlStringRGBA(DEFAULT_BACKGROUND_COLOR),
+                textColor = ColorUtility.ToHtmlStringRGBA(DEFAULT_TEXT_COLOR),
+                fontSize = 16,
+                historySize = 256,
+                outputBufferSize = 8192,
+            };
+        }
+
+        /// <summary>
+        /// Load and overwrite the settings object.
+        /// </summary>
+        private static bool TryLoadSettings(string path, ref FluxSettings settings) {
+            if (File.Exists(path)) {
+                var content = File.ReadAllText(path);
+                try {
+                    JsonUtility.FromJsonOverwrite(content, settings);
+                    return true;
+                }
+                catch (Exception e) {
+                    Debug.LogException(e);
+                }
+            }
+            return false;
+        }
+
         private static void CreateResources() {
             var font = CreateMonospaceFont(16);
             font.hideFlags = HideFlags.HideAndDontSave;
 
             _backgroundTexture = new Texture2D(1, 1);
-            _backgroundTexture.SetPixel(0, 0, new Color(0, 0, 0, 0.5f));
+            _backgroundTexture.SetPixel(0, 0, FluxSettings.GetColor(_settings.backgroundColor, DEFAULT_BACKGROUND_COLOR));
             _backgroundTexture.Apply();
+
+            Color textColor = FluxSettings.GetColor(_settings.textColor, DEFAULT_TEXT_COLOR);
 
             _inputTextStyle = new GUIStyle();
             _inputTextStyle.normal.background = _backgroundTexture;
-            _inputTextStyle.normal.textColor = Color.white;
+            _inputTextStyle.normal.textColor = textColor;
             _inputTextStyle.padding = new RectOffset(0, 4, 0, 0);
-            _inputTextStyle.fontSize = 16;
+            _inputTextStyle.fontSize = _settings.fontSize;
             if (font != null) _inputTextStyle.font = font;
 
             _historyStyle = new GUIStyle();
             _historyStyle.alignment = TextAnchor.LowerLeft;
-            _historyStyle.normal.textColor = Color.white;
+            _historyStyle.normal.textColor = textColor;
             _historyStyle.wordWrap = true;
             _historyStyle.richText = true;
             _historyStyle.padding = new RectOffset(4, 4, 0, 4);
-            _historyStyle.fontSize = 16;
+            _historyStyle.fontSize = _settings.fontSize;
             if (font != null) _historyStyle.font = font;
 
             _promptStyle = new GUIStyle(_historyStyle);
