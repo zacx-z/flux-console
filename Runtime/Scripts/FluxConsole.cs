@@ -86,6 +86,11 @@ namespace Nela.Flux {
                     currentEvent.Use();
                 }
 
+                if (currentEvent.keyCode == KeyCode.D && currentEvent.control && _inputText == string.Empty) {
+                    Toggle();
+                    currentEvent.Use();
+                }
+
                 if (currentEvent.keyCode == KeyCode.Return) {
                     Submit(_inputText);
                     currentEvent.Use();
