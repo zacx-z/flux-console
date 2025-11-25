@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Nela.Flux {
@@ -12,15 +13,39 @@ namespace Nela.Flux {
             _input = input;
         }
 
-        public void Output(string text) {
+        public void Print(string text) {
             _console.Output(text);
+        }
+
+        public void Println(string text) {
+            _console.Output(text);
+            _console.Output("\n");
         }
 
         public void Error(string message) {
             _console.Error(message);
         }
 
-        public List<string> ReadAllArguments() {
+        public string ReadLine() {
+            return _input.ReadLine();
+        }
+
+        public bool TryReadArgument<T>(out T arg) {
+            if (_input.TryNextToken(out var token)) {
+                try {
+                    arg = (T)Convert.ChangeType(token, typeof(T));
+                    return true;
+                }
+                catch (Exception _) {
+                    // ignored
+                }
+            }
+
+            arg = default(T);
+            return false;
+        }
+
+        public List<string> ReadRemainingArguments() {
             var args = new List<string>();
             while (_input.TryNextToken(out var arg)) {
                 args.Add(arg);

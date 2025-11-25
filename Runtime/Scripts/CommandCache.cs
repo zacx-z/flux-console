@@ -118,7 +118,7 @@ namespace Nela.Flux {
 
             var ret = _method.Invoke(null, args);
             if (_method.ReturnType != typeof(void)) {
-                context.Output($"{ret}\n");
+                context.Print($"{ret}\n");
             }
         }
 
