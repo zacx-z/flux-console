@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Nela.Flux {
     public class CommandContext {
@@ -36,7 +38,7 @@ namespace Nela.Flux {
                     arg = (T)Convert.ChangeType(token, typeof(T));
                     return true;
                 }
-                catch (Exception _) {
+                catch (Exception) {
                     // ignored
                 }
             }
@@ -52,6 +54,20 @@ namespace Nela.Flux {
             }
 
             return args;
+        }
+
+        /// <summary>
+        /// Make the console wait for the task to finish before it accepts input again
+        /// </summary>
+        public void Attach(Task task, string label = null) {
+            _console.Attach(task, label);
+        }
+
+        /// <summary>
+        /// Show a special prompt and handle the next input. If `AcceptInput` is called again before `handler` is called, `onSkipped` will be called.
+        /// </summary>
+        public void AcceptInput(string prompt, Action<string> handler, CancellationToken cancellationToken, Action onCanceled = null) {
+            _console.SetInputHandler(new FluxConsole.InputHandler(prompt, handler, cancellationToken, onCanceled));
         }
     }
 }

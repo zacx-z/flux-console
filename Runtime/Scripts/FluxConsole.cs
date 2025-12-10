@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Nela.Flux {
@@ -40,6 +42,8 @@ namespace Nela.Flux {
         private bool _outputDirty;
         private Vector2 _scrollPosition;
         private CommandHistory _commandHistory;
+        private Task _currentTask;
+        private InputHandler _inputHandler;
 
         public FluxConsole() {
             _outputHistory.EnsureCapacity(_settings.outputBufferSize + MAX_OUTPUT_HISTORY_SIZE_MARGIN);
@@ -62,6 +66,10 @@ namespace Nela.Flux {
 
         private void OnGUI() {
             if (!_isOpen) return;
+            if (_inputHandler != null && _inputHandler.canceled) {
+                _inputHandler.Cancel();
+                _inputHandler = null;
+            }
 
             if (_skin == null) {
                 _skin = Instantiate(GUI.skin);
@@ -151,24 +159,28 @@ namespace Nela.Flux {
             GUI.EndScrollView();
             GUI.SetNextControlName("Command");
 
-            var originalChanged = GUI.changed;
-            GUI.changed = false;
+            if (_currentTask == null || _currentTask.Status != TaskStatus.Running) {
+                var originalChanged = GUI.changed;
+                GUI.changed = false;
 
-            // draw prompt
-            var prompt = GetCurrentPrompt();
-            var promptWidth = _historyStyle.CalcSize(new GUIContent(prompt)).x - 2;
-            GUI.Label(new Rect(margin.left, Screen.height - margin.bottom - LINE_HEIGHT, promptWidth, LINE_HEIGHT), prompt, _promptStyle);
+                // draw prompt
+                var prompt = GetCurrentPrompt();
+                var promptWidth = _historyStyle.CalcSize(new GUIContent(prompt)).x - 2;
+                GUI.Label(new Rect(margin.left, Screen.height - margin.bottom - LINE_HEIGHT, promptWidth, LINE_HEIGHT),
+                    prompt, _promptStyle);
 
-            _inputText = GUI.TextField(new Rect(promptWidth, Screen.height - margin.bottom - LINE_HEIGHT
-                    , Screen.width - promptWidth - margin.left - margin.right, LINE_HEIGHT)
-                , _inputText, _inputTextStyle);
-            if (GUI.changed) {
-                _inputNavHint = _inputText;
-                _commandHistory.ResetCursor();
+                _inputText = GUI.TextField(new Rect(promptWidth, Screen.height - margin.bottom - LINE_HEIGHT
+                        , Screen.width - promptWidth - margin.left - margin.right, LINE_HEIGHT)
+                    , _inputText, _inputTextStyle);
+                if (GUI.changed) {
+                    _inputNavHint = _inputText;
+                    _commandHistory.ResetCursor();
+                }
+
+                GUI.changed = originalChanged;
+
+                GUI.FocusControl("Command"); // always focus on the input field
             }
-            GUI.changed = originalChanged;
-
-            GUI.FocusControl("Command"); // always focus on the input field
 
             GUI.skin = originalSkin;
         }
@@ -183,6 +195,19 @@ namespace Nela.Flux {
 
         private void Submit(string command) {
             if (command == "") return;
+            if (_inputHandler != null) {
+                Output($"{GetCurrentPrompt()}{command}\n");
+
+                var handler = _inputHandler;
+                _inputHandler = null;
+                _commandHistory.ResetCursor();
+
+                handler.Handle(command);
+
+                _inputNavHint = _inputText = string.Empty;
+                return;
+            }
+
             Output($"<color=#70ff90><i>{DateTime.Now.ToShortTimeString()}</i></color> <b>></b> {command}\n");
 
             Flush();
@@ -226,7 +251,13 @@ namespace Nela.Flux {
         }
 
         private string GetCurrentPrompt() {
-            return $"<color=#70ff90><i>{DateTime.Now.ToShortTimeString()}</i></color> <b>></b> ";
+            string promptText;
+            if (_inputHandler != null) {
+                promptText = _inputHandler.prompt;
+            } else {
+                promptText = DateTime.Now.ToShortTimeString();
+            }
+            return $"<color=#70ff90><i>{promptText}</i></color> <b>></b> ";
         }
 
         /// <summary>
@@ -245,6 +276,15 @@ namespace Nela.Flux {
 
         public void Error(string message) {
             Output($"<b><color=#ff0000>Error</color></b>: {message}\n");
+        }
+
+        public void Attach(Task task, string label) {
+            _currentTask = task;
+        }
+
+        public void SetInputHandler(InputHandler inputHandler) {
+            if (_inputHandler != null) _inputHandler.Cancel();
+            _inputHandler = inputHandler;
         }
 
         public static bool isOpen => _console != null && _console._isOpen;
@@ -368,6 +408,32 @@ namespace Nela.Flux {
             }
 
             return null;
+        }
+
+        public class InputHandler {
+            private readonly string _prompt;
+            private readonly Action<string> _handler;
+            private readonly CancellationToken _cancellationToken;
+            private readonly Action _onCanceled;
+
+            public InputHandler(string prompt, Action<string> handler, CancellationToken cancellationToken,
+                Action onCanceled) {
+                _prompt = prompt;
+                _handler = handler;
+                _cancellationToken = cancellationToken;
+                _onCanceled = onCanceled;
+            }
+
+            public string prompt => _prompt;
+            public bool canceled => _cancellationToken.IsCancellationRequested;
+
+            public void Handle(string command) {
+                _handler.Invoke(command);
+            }
+
+            public void Cancel() {
+                _onCanceled?.Invoke();
+            }
         }
     }
 }
