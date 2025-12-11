@@ -135,11 +135,11 @@ namespace Nela.Flux {
             }
 
             var margin = _settings.margin;
-            const int LINE_HEIGHT = 24;
+            var lineHeight = _settings.fontSize + 8;
 
             var historyRect = new Rect(margin.left, margin.top,
                 Screen.width - margin.left - margin.right,
-                Screen.height - margin.top - margin.bottom - LINE_HEIGHT);
+                Screen.height - margin.top - margin.bottom - lineHeight);
             GUI.DrawTexture(historyRect, _backgroundTexture, ScaleMode.StretchToFill, true);
 
             var contentViewWidth = Screen.width - 8 - margin.left - margin.right;
@@ -166,11 +166,11 @@ namespace Nela.Flux {
                 // draw prompt
                 var prompt = GetCurrentPrompt();
                 var promptWidth = _historyStyle.CalcSize(new GUIContent(prompt)).x - 2;
-                GUI.Label(new Rect(margin.left, Screen.height - margin.bottom - LINE_HEIGHT, promptWidth, LINE_HEIGHT),
+                GUI.Label(new Rect(margin.left, Screen.height - margin.bottom - lineHeight, promptWidth, lineHeight),
                     prompt, _promptStyle);
 
-                _inputText = GUI.TextField(new Rect(promptWidth, Screen.height - margin.bottom - LINE_HEIGHT
-                        , Screen.width - promptWidth - margin.left - margin.right, LINE_HEIGHT)
+                _inputText = GUI.TextField(new Rect(promptWidth, Screen.height - margin.bottom - lineHeight
+                        , Screen.width - promptWidth - margin.left - margin.right, lineHeight)
                     , _inputText, _inputTextStyle);
                 if (GUI.changed) {
                     _inputNavHint = _inputText;
