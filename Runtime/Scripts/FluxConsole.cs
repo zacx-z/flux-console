@@ -43,6 +43,7 @@ namespace Nela.Flux {
         private Vector2 _scrollPosition;
         private CommandHistory _commandHistory;
         private Task _currentTask;
+        private CancellationTokenSource _currentCancellationTokenSource;
         private InputHandler _inputHandler;
 
         public FluxConsole() {
@@ -96,7 +97,18 @@ namespace Nela.Flux {
                 }
 
                 if (currentEvent.keyCode == KeyCode.D && currentEvent.control && _inputText == string.Empty) {
-                    Toggle();
+                    if (_inputHandler != null) {
+                        _inputHandler.Cancel();
+                        _inputHandler = null;
+                    } else {
+                        Toggle();
+                    }
+
+                    currentEvent.Use();
+                }
+
+                if (currentEvent.keyCode == KeyCode.C && currentEvent.control && _currentTask != null) {
+                    _currentCancellationTokenSource?.Cancel();
                     currentEvent.Use();
                 }
 
@@ -159,7 +171,11 @@ namespace Nela.Flux {
             GUI.EndScrollView();
             GUI.SetNextControlName("Command");
 
-            if (_currentTask == null || _currentTask.Status != TaskStatus.Running) {
+            var taskRunning = _currentTask != null && (_currentTask.Status == TaskStatus.Running
+                                                       || _currentTask.Status == TaskStatus.WaitingForActivation
+                                                       || _currentTask.Status == TaskStatus.WaitingToRun
+                                                       || _currentTask.Status == TaskStatus.WaitingForChildrenToComplete);
+            if (!taskRunning) {
                 var originalChanged = GUI.changed;
                 GUI.changed = false;
 
@@ -278,8 +294,9 @@ namespace Nela.Flux {
             Output($"<b><color=#ff0000>Error</color></b>: {message}\n");
         }
 
-        public void Attach(Task task, string label) {
+        public void Attach(Task task, CancellationTokenSource cancellationTokenSource, string label) {
             _currentTask = task;
+            _currentCancellationTokenSource = cancellationTokenSource;
         }
 
         public void SetInputHandler(InputHandler inputHandler) {
@@ -289,7 +306,7 @@ namespace Nela.Flux {
 
         public static bool isOpen => _console != null && _console._isOpen;
 
-        public static void ExecuteCommand(string commandLine) {
+        public void ExecuteCommand(string commandLine) {
             var tokenizer = new CommandTokenizer(commandLine);
             if (tokenizer.TryNextToken(out var command)) {
                 var com = CommandCache.FindCommand(command);
@@ -298,10 +315,10 @@ namespace Nela.Flux {
                         com.Execute(new CommandContext(_console, tokenizer));
                     }
                     catch (Exception e) {
-                        _console.Error(e.ToString());
+                        Error(e.ToString());
                     }
                 } else {
-                    _console.Error($"Can't find command {command}");
+                    Error($"Can't find command {command}");
                 }
             }
         }

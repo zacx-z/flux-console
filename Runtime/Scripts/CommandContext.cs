@@ -59,8 +59,8 @@ namespace Nela.Flux {
         /// <summary>
         /// Make the console wait for the task to finish before it accepts input again
         /// </summary>
-        public void Attach(Task task, string label = null) {
-            _console.Attach(task, label);
+        public void Attach(Task task, CancellationTokenSource cancellationTokenSource = null, string label = null) {
+            _console.Attach(task, cancellationTokenSource, label);
         }
 
         /// <summary>
@@ -68,6 +68,10 @@ namespace Nela.Flux {
         /// </summary>
         public void AcceptInput(string prompt, Action<string> handler, CancellationToken cancellationToken, Action onCanceled = null) {
             _console.SetInputHandler(new FluxConsole.InputHandler(prompt, handler, cancellationToken, onCanceled));
+        }
+
+        public void ExecuteCommand(string command) {
+            _console.ExecuteCommand(command);
         }
     }
 }

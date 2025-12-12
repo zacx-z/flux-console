@@ -18,6 +18,16 @@ If <command> is provided, show the manual of the command.
 The description and manual is set via the CommandAttribute on the function:
 [Command(<name>, description = <description>, manual = <manual>)]
 ";
+
+        private const string DELAY_MANUAL =
+@"<b>SYNOPSIS</b>
+delay
+delay <timeout> <command> ...
+
+<b>DESCRIPTION</b>
+Delay <command> for <duration> seconds.
+Press CTRL-C to interrupt.
+";
         [Command("help", description = "Show list of available commands or the manual of a specific command.", manual = HELP_MANUAL)]
         public static void Help(CommandContext context) {
             var args = context.ReadRemainingArguments();
@@ -37,6 +47,24 @@ The description and manual is set via the CommandAttribute on the function:
             } else {
                 context.Error("help | help <command>");
             }
+        }
+
+        [Command("delay", description = "Delay executing a command for a certain timeout.", manual = DELAY_MANUAL)]
+        public static void Delay(CommandContext context) {
+            if (!context.TryReadArgument(out float delay)) {
+                context.Println("Invalid argument. Usage: delay <timeout> <command> ...");
+                return;
+            }
+            var command = context.ReadLine();
+            var cancellationTokenSource = new CancellationTokenSource();
+            var task = Task.Delay((int)(delay * 1000), cancellationTokenSource.Token);
+            task.ContinueWith(_ => {
+                context.ExecuteCommand(command);
+            }, TaskContinuationOptions.OnlyOnRanToCompletion);
+            task.ContinueWith(t => {
+                context.Println("Delay command cancelled.");
+            }, TaskContinuationOptions.OnlyOnCanceled);
+            context.Attach(task, cancellationTokenSource);
         }
 
         [Command("shell", description = "Open the default shell in the console.")]
