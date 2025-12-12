@@ -27,6 +27,7 @@ namespace Nela.Flux {
         private static GUIStyle _inputTextStyle;
         private static GUIStyle _historyStyle;
         private static GUIStyle _promptStyle;
+        private static GUIStyle _alternativeBufferStyle;
         private static GUIStyle _scrollBarStyle;
         private static GUIStyle _scrollBarThumbStyle;
         private static GUIStyle _scrollBarUpButtonStyle;
@@ -38,8 +39,11 @@ namespace Nela.Flux {
         private string _inputNavHint = string.Empty;
 
         private StringBuilder _outputHistory = new StringBuilder($"<b>Flux Console</b>\n<color=#70ff90><i>{DateTime.Now}</i></color>\n");
+        private StringBuilder _alternativeBuffer = new StringBuilder();
         private string _outputCache;
+        private string _alternativeBufferCache = "";
         private bool _outputDirty;
+        private bool _alternativeBufferOn;
         private Vector2 _scrollPosition;
         private CommandHistory _commandHistory;
         private Task _currentTask;
@@ -158,17 +162,24 @@ namespace Nela.Flux {
             var contentViewHeight = _historyStyle.CalcHeight(new GUIContent(_outputCache), contentViewWidth);
             contentViewHeight = Mathf.Max(contentViewHeight, historyRect.height);
 
-            _scrollPosition.y += contentViewHeight;
+            if (!_alternativeBufferOn) {
+                _scrollPosition.y += contentViewHeight;
 
-            _scrollPosition = GUI.BeginScrollView(historyRect, _scrollPosition,
-                new Rect(0, 0, contentViewWidth, contentViewHeight)
-                ,false, true,
-                GUIStyle.none, _scrollBarStyle);
+                _scrollPosition = GUI.BeginScrollView(historyRect, _scrollPosition,
+                    new Rect(0, 0, contentViewWidth, contentViewHeight)
+                    , false, true,
+                    GUIStyle.none, _scrollBarStyle);
 
-            _scrollPosition.y -= contentViewHeight;
+                _scrollPosition.y -= contentViewHeight;
 
-            GUI.Label(new Rect(margin.left, margin.top, contentViewWidth, contentViewHeight), _outputCache, _historyStyle);
-            GUI.EndScrollView();
+                GUI.Label(new Rect(margin.left, margin.top, contentViewWidth, contentViewHeight), _outputCache, _historyStyle);
+                GUI.EndScrollView();
+            } else {
+                if (_alternativeBufferCache.Length < _alternativeBuffer.Length) {
+                    _alternativeBufferCache = _alternativeBuffer.ToString();
+                }
+                GUI.Label(historyRect, _alternativeBufferCache, _alternativeBufferStyle);
+            }
             GUI.SetNextControlName("Command");
 
             var taskRunning = _currentTask != null && (_currentTask.Status == TaskStatus.Running
@@ -282,6 +293,10 @@ namespace Nela.Flux {
         public void Output(string content) {
             lock (_outputHistory) {
                 _outputDirty = true;
+                if (_alternativeBufferOn) {
+                    _alternativeBuffer.Append(content);
+                    return;
+                }
                 var outputHistory = _outputHistory;
                 outputHistory.Append(content);
                 if (outputHistory.Length > _settings.outputBufferSize + MAX_OUTPUT_HISTORY_SIZE_MARGIN) {
@@ -295,6 +310,7 @@ namespace Nela.Flux {
         }
 
         public void Attach(Task task, CancellationTokenSource cancellationTokenSource, string label) {
+            if (_currentCancellationTokenSource != null) _currentCancellationTokenSource.Cancel();
             _currentTask = task;
             _currentCancellationTokenSource = cancellationTokenSource;
         }
@@ -320,6 +336,14 @@ namespace Nela.Flux {
                 } else {
                     Error($"Can't find command {command}");
                 }
+            }
+        }
+
+        public void SetAlternativeBufferEnabled(bool enabled) {
+            _alternativeBufferOn = enabled;
+            if (enabled) {
+                _alternativeBuffer.Clear();
+                _alternativeBufferCache = "";
             }
         }
 
@@ -400,6 +424,9 @@ namespace Nela.Flux {
             _promptStyle.normal.background = _backgroundTexture;
             _promptStyle.alignment = TextAnchor.UpperLeft;
             _promptStyle.padding = new RectOffset(4, 0, 0, 0);
+            
+            _alternativeBufferStyle = new GUIStyle(_historyStyle);
+            _alternativeBufferStyle.alignment = TextAnchor.UpperLeft;
 
             _scrollBarStyle = new GUIStyle();
             _scrollBarStyle.name = "fluxconsoleverticalscrollbar";

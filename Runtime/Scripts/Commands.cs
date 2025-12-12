@@ -114,5 +114,44 @@ Press CTRL-C to interrupt.
                 });
             }
         }
+
+        [Command("watch", description = "Execute a command periodically, showing output fullscreen.")]
+        public static void Watch(CommandContext context) {
+            const string usage = "Invalid argument. Usage: watch [-t <interval>] <command> ...";
+            if (!context.TryReadArgument(out string arg)) {
+                context.Println(usage);
+                return;
+            }
+
+            string command;
+            float interval = 0.1f;
+
+            if (arg == "-t") {
+                if (!context.TryReadArgument(out interval)) {
+                    context.Println(usage);
+                    return;
+                }
+                command = context.ReadLine();
+            } else {
+                command = $"{arg} {context.ReadLine()}";
+            }
+
+            var cancellationTokenSource = new CancellationTokenSource();
+            var task = Task.Run(WatchUpdate, cancellationTokenSource.Token);
+            task.ContinueWith(_ => {
+                context.SetAlternativeBufferEnabled(false);
+            }, TaskContinuationOptions.ExecuteSynchronously);
+            context.Attach(task, cancellationTokenSource);
+
+            async Task WatchUpdate() {
+                while (true) {
+                    if (cancellationTokenSource.Token.IsCancellationRequested)
+                        return;
+                    context.SetAlternativeBufferEnabled(true);
+                    context.ExecuteCommand(command);
+                    await Task.Delay((int)(interval * 1000), cancellationTokenSource.Token);
+                }
+            }
+        }
     }
 }

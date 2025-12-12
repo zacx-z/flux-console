@@ -73,5 +73,9 @@ namespace Nela.Flux {
         public void ExecuteCommand(string command) {
             _console.ExecuteCommand(command);
         }
+
+        public void SetAlternativeBufferEnabled(bool enabled) {
+            _console.SetAlternativeBufferEnabled(enabled);
+        }
     }
 }
