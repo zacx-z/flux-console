@@ -144,12 +144,15 @@ Press CTRL-C to interrupt.
             context.Attach(task, cancellationTokenSource);
 
             async Task WatchUpdate() {
-                while (true) {
-                    if (cancellationTokenSource.Token.IsCancellationRequested)
-                        return;
-                    context.SetAlternativeBufferEnabled(true);
-                    context.ExecuteCommand(command);
-                    await Task.Delay((int)(interval * 1000), cancellationTokenSource.Token);
+                var cancellationToken = cancellationTokenSource.Token;
+                var intervalInt = (int)(interval * 1000);
+                while (!cancellationToken.IsCancellationRequested) {
+                    await context.console.ExecuteOnMainThread(() => {
+                        context.console.SetAlternativeBufferEnabled(true);
+                        context.console.ExecuteCommand(command);
+                    });
+                    if (intervalInt > 0)
+                        await Task.Delay(intervalInt, cancellationToken);
                 }
             }
         }

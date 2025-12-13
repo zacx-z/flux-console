@@ -46,6 +46,7 @@ namespace Nela.Flux {
         private bool _alternativeBufferOn;
         private Vector2 _scrollPosition;
         private CommandHistory _commandHistory;
+        private object _mainThreadCallsLock = new object();
         private Action _toExecuteOnMainThread;
         private Task _currentTask;
         private CancellationTokenSource _currentCancellationTokenSource;
@@ -71,11 +72,16 @@ namespace Nela.Flux {
         }
 
         private void OnGUI() {
-            if (_toExecuteOnMainThread != null) {
-                var toExecute = _toExecuteOnMainThread;
-                _toExecuteOnMainThread = null;
-                toExecute.Invoke();
+            Action toExecute = null;
+
+            lock (_mainThreadCallsLock) {
+                if (_toExecuteOnMainThread != null) {
+                    toExecute = _toExecuteOnMainThread;
+                    _toExecuteOnMainThread = null;
+                }
             }
+
+            toExecute?.Invoke();
 
             if (!_isOpen) return;
             if (_inputHandler != null && _inputHandler.canceled) {
@@ -346,8 +352,13 @@ namespace Nela.Flux {
             }
         }
 
-        public void ExecuteOnMainThread(Action action) {
-            _toExecuteOnMainThread += action;
+        public Task ExecuteOnMainThread(Action action) {
+            var tcs = new TaskCompletionSource<object>();
+            lock (_mainThreadCallsLock) {
+                _toExecuteOnMainThread += action;
+                _toExecuteOnMainThread += () => tcs.TrySetResult(null);
+            }
+            return tcs.Task;
         }
 
         public void SetAlternativeBufferEnabled(bool enabled) {

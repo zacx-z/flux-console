@@ -8,6 +8,7 @@ namespace Nela.Flux {
         private readonly FluxConsole _console;
         private readonly CommandTokenizer _input;
 
+        public FluxConsole console => _console;
         public CommandTokenizer input => _input;
 
         public CommandContext(FluxConsole console, CommandTokenizer input) {
