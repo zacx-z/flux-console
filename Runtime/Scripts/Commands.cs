@@ -59,11 +59,11 @@ Press CTRL-C to interrupt.
             var cancellationTokenSource = new CancellationTokenSource();
             var task = Task.Delay((int)(delay * 1000), cancellationTokenSource.Token);
             task.ContinueWith(_ => {
-                context.ExecuteCommand(command);
-            }, TaskContinuationOptions.OnlyOnRanToCompletion);
+                    context.ExecuteCommand(command);
+                }, TaskContinuationOptions.OnlyOnRanToCompletion);
             task.ContinueWith(t => {
-                context.Println("Delay command cancelled.");
-            }, TaskContinuationOptions.OnlyOnCanceled);
+                    context.Println("Delay command cancelled.");
+                }, TaskContinuationOptions.OnlyOnCanceled);
             context.Attach(task, cancellationTokenSource);
         }
 

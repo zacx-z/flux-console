@@ -38,10 +38,13 @@ You can write commands in two ways:
 Examples are below:
 
 ```csharp
-[Command("echo", description = "Echoes the input after the command name.")]
+private const string ECHO_MANUAL = @"echo [<string> ...]
+Writes the texts followed by the command.
+";
+
+[Command("echo", description = "Echoes the input after the command name."), manual = ECHO_MANUAL]
 private static void Echo(CommandContext context) {
-    context.Output(context.input.ReadLine(), false);
-    context.Output("\n");
+    context.Println(context.input.ReadLine());
 }
 ```
 
@@ -51,3 +54,42 @@ private static int Add(int a, int b) {
     return a + b;
 }
 ```
+
+## Advanced Topics
+
+### Async Command
+
+If a command takes time to finish, you can block the input with `CommandContext.Attach()` function while it is executing.
+
+It accepts a `Task` object, and while it is not finished, the console will stops accepting input.
+
+The following code delay executing an command for `delay` milliseconds, where the user can press CTRL-C to interrupt it:
+
+```csharp
+var cancellationTokenSource = new CancellationTokenSource();
+var task = Task.Delay(delay, cancellationTokenSource.Token);
+task.ContinueWith(_ => {
+        context.ExecuteCommand(command);
+    }, TaskContinuationOptions.OnlyOnRanToCompletion);
+task.ContinueWith(t => {
+        context.Println("Delay command cancelled.");
+    }, TaskContinuationOptions.OnlyOnCanceled);
+context.Attach(task, cancellationTokenSource);
+```
+
+### Taking Over Input
+
+Use `CommandContext.AcceptInput()` to intercept the input for once and handle it with your own handlers.
+
+Provide a `CancellationToken` to request cancelling accepting input.
+
+If you want to receiving input for more than once, you can call `AcceptInput()` again from the input handler.
+
+### Alternative Buffer
+
+Flux Console simulates an alternative buffer similar to that in a shell terminal.
+
+After you enable the alternative buffer by calling `CommandContext.SetAlternativeBufferEnabled()`, any subsequent printing will output the text to the alternative buffer,
+which will clear the screen and show the text from the top left. You can use this in combination with `CommandContext.Attach()` or `CommandContext.AcceptInput()` to show status text while your code is executing.
+
+Remember to disable the alternative buffer after you finish with your command.

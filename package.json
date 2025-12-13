@@ -1,6 +1,6 @@
 {
   "name": "com.nelasystem.flux-console",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "displayName": "Flux Console",
   "description": "A minimalistic runtime console.",
   "dependencies": {
